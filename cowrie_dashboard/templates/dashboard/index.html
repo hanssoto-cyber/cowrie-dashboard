@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cowrie Dashboard — Inicio{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><span>▶</span> THREAT_DASHBOARD</h1>
+    <p>Monitoreo en tiempo real del honeypot Cowrie SSH</p>
+</div>
+
+<div class="refresh-info">
+    Auto-refresh en <span id="countdown">30</span>s
+</div>
+
+<!-- STATS -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value" id="total-connections">{{ stats.total_connections }}</div>
+        <div class="stat-label">CONEXIONES TOTALES</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-value" id="unique-ips">{{ stats.unique_ips }}</div>
+        <div class="stat-label">IPs ÚNICAS</div>
+    </div>
+    <div class="stat-card red">
+        <div class="stat-value" id="login-success">{{ stats.login_success }}</div>
+        <div class="stat-label">LOGINS EXITOSOS</div>
+    </div>
+    <div class="stat-card purple">
+        <div class="stat-value" id="login-failed">{{ stats.login_failed }}</div>
+        <div class="stat-label">LOGINS FALLIDOS</div>
+    </div>
+</div>
+
+<!-- MAPA -->
+<div class="card">
+    <div class="card-title">🗺️ Mapa de Atacantes</div>
+    <div id="map"></div>
+</div>
+
+<!-- GRÁFICO + TOP CONTRASEÑAS -->
+<div class="grid-2">
+    <div class="card">
+        <div class="card-title">📈 Ataques por Hora</div>
+        <canvas id="hourlyChart"></canvas>
+    </div>
+    <div class="card">
+        <div class="card-title">🔑 Top Contraseñas</div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Contraseña</th>
+                        <th>Intentos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in stats.top_passwords %}
+                    <tr>
+                        <td><span class="accent">{{ item.password }}</span></td>
+                        <td>{{ item.count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" style="color:var(--text-muted)">Sin datos aún</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ÚLTIMOS ATAQUES -->
+<div class="card">
+    <div class="card-title">⚡ Últimos Ataques</div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>IP</th>
+                    <th>Usuario</th>
+                    <th>Contraseña</th>
+                    <th>País</th>
+                    <th>Resultado</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="attacks-tbody">
+                {% for attack in stats.recent_attacks %}
+                <tr>
+                    <td><span class="accent">{{ attack.src_ip }}</span></td>
+                    <td>{{ attack.username }}</td>
+                    <td>{{ attack.password }}</td>
+                    <td>{{ attack.country|default:"Desconocido" }}</td>
+                    <td>
+                        <span class="badge {% if attack.success %}badge-red{% else %}badge-green{% endif %}">
+                            {% if attack.success %}ÉXITO{% else %}FALLIDO{% endif %}
+                        </span>
+                    </td>
+                    <td style="color:var(--text-muted)">{{ attack.timestamp }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="color:var(--text-muted)">Sin ataques registrados aún</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Datos desde Django
+const geolocations = {{ geolocations_json|safe }};
+const hourlyData = {{ hourly_json|safe }};
+
+// MAPA
+window.attackMap = L.map('map', {
+    center: [20, 0],
+    zoom: 2,
+    preferCanvas: true
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO'
+}).addTo(window.attackMap);
+
+window.markersLayer = L.layerGroup().addTo(window.attackMap);
+
+geolocations.forEach(geo => {
+    if (geo.lat && geo.lon) {
+        L.circleMarker([geo.lat, geo.lon], {
+            radius: 6,
+            fillColor: '#00d9ff',
+            color: '#00d9ff',
+            weight: 1,
+            opacity: 0.8,
+            fillOpacity: 0.5
+        }).bindPopup(`
+            <div style="font-family:JetBrains Mono,monospace;font-size:12px">
+                <b style="color:#00d9ff">${geo.ip}</b><br>
+                ${geo.country || 'Desconocido'}<br>
+                ${geo.city || ''}
+            </div>
+        `).addTo(window.markersLayer);
+    }
+});
+
+// GRÁFICO
+const ctx = document.getElementById('hourlyChart').getContext('2d');
+window.hourlyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: hourlyData.map(h => h.hour),
+        datasets: [{
+            label: 'Ataques',
+            data: hourlyData.map(h => h.count),
+            backgroundColor: 'rgba(0, 217, 255, 0.3)',
+            borderColor: '#00d9ff',
+            borderWidth: 1,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#6c7086' }, grid: { color: '#2a2f3e' } },
+            y: { ticks: { color: '#6c7086' }, grid: { color: '#2a2f3e' } }
+        }
+    }
+});
+</script>
+{% endblock %}

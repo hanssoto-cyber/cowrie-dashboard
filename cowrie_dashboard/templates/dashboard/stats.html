@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cowrie Dashboard — Estadísticas{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><span>▶</span> THREAT_STATS</h1>
+    <p>Análisis detallado de patrones de ataque</p>
+</div>
+
+<!-- GRÁFICO HORAS -->
+<div class="card">
+    <div class="card-title">📈 Distribución de Ataques por Hora</div>
+    <canvas id="hourlyChart" height="80"></canvas>
+</div>
+
+<!-- TOP PASSWORDS Y USERNAMES -->
+<div class="grid-2">
+    <div class="card">
+        <div class="card-title">🔑 Top 10 Contraseñas</div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Contraseña</th>
+                        <th>Intentos</th>
+                        <th>Barra</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in stats.top_passwords %}
+                    <tr>
+                        <td style="color:var(--text-muted)">#{{ forloop.counter }}</td>
+                        <td><span class="accent">{{ item.password }}</span></td>
+                        <td>{{ item.count }}</td>
+                        <td>
+                            <div style="background:rgba(0,217,255,0.4);height:8px;border-radius:4px;width:{% widthratio item.count stats.max_password_count 150 %}px"></div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" style="color:var(--text-muted)">Sin datos aún</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">👤 Top 10 Usuarios</div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Usuario</th>
+                        <th>Intentos</th>
+                        <th>Barra</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in stats.top_usernames %}
+                    <tr>
+                        <td style="color:var(--text-muted)">#{{ forloop.counter }}</td>
+                        <td><span style="color:var(--terminal-purple)">{{ item.username }}</span></td>
+                        <td>{{ item.count }}</td>
+                        <td>
+                            <div style="background:rgba(198,120,221,0.4);height:8px;border-radius:4px;width:{% widthratio item.count stats.max_username_count 150 %}px"></div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" style="color:var(--text-muted)">Sin datos aún</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- RESUMEN GENERAL -->
+<div class="card">
+    <div class="card-title">📊 Resumen General</div>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total_connections }}</div>
+            <div class="stat-label">CONEXIONES</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-value">{{ stats.unique_ips }}</div>
+            <div class="stat-label">IPs ÚNICAS</div>
+        </div>
+        <div class="stat-card red">
+            <div class="stat-value">{{ stats.login_success }}</div>
+            <div class="stat-label">ÉXITOS</div>
+        </div>
+        <div class="stat-card purple">
+            <div class="stat-value">{{ stats.login_failed }}</div>
+            <div class="stat-label">FALLIDOS</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="stat-value">{{ stats.top_passwords|length }}</div>
+            <div class="stat-label">CONTRASEÑAS ÚNICAS</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const hourlyData = {{ hourly_json|safe }};
+const ctx = document.getElementById('hourlyChart').getContext('2d');
+window.hourlyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: hourlyData.map(h => h.hour),
+        datasets: [{
+            label: 'Ataques',
+            data: hourlyData.map(h => h.count),
+            backgroundColor: 'rgba(0, 217, 255, 0.1)',
+            borderColor: '#00d9ff',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#6c7086' }, grid: { color: '#2a2f3e' } },
+            y: { ticks: { color: '#6c7086' }, grid: { color: '#2a2f3e' } }
+        }
+    }
+});
+</script>
+{% endblock %}

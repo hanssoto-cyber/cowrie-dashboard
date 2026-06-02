@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cowrie Dashboard — Ataques{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><span>▶</span> ATTACK_LOG</h1>
+    <p>Registro completo de intentos de acceso SSH</p>
+</div>
+
+<!-- STATS RÁPIDAS -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.total_connections }}</div>
+        <div class="stat-label">CONEXIONES TOTALES</div>
+    </div>
+    <div class="stat-card red">
+        <div class="stat-value">{{ stats.login_success }}</div>
+        <div class="stat-label">LOGINS EXITOSOS</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-value">{{ stats.login_failed }}</div>
+        <div class="stat-label">LOGINS FALLIDOS</div>
+    </div>
+    <div class="stat-card purple">
+        <div class="stat-value">{{ stats.unique_ips }}</div>
+        <div class="stat-label">IPs ÚNICAS</div>
+    </div>
+</div>
+
+<!-- TABLA COMPLETA -->
+<div class="card">
+    <div class="card-title">⚡ Todos los Intentos de Login</div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>IP Atacante</th>
+                    <th>Usuario</th>
+                    <th>Contraseña</th>
+                    <th>Resultado</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for attack in stats.recent_attacks %}
+                <tr>
+                    <td style="color:var(--text-muted)">{{ forloop.counter }}</td>
+                    <td><span class="accent">{{ attack.src_ip }}</span></td>
+                    <td>{{ attack.username }}</td>
+                    <td>{{ attack.password }}</td>
+                    <td>
+                        <span class="badge {% if attack.success %}badge-red{% else %}badge-green{% endif %}">
+                            {% if attack.success %}ÉXITO{% else %}FALLIDO{% endif %}
+                        </span>
+                    </td>
+                    <td style="color:var(--text-muted)">{{ attack.timestamp }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="color:var(--text-muted);text-align:center;padding:2rem">
+                        Sin ataques registrados aún — esperando conexiones...
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
