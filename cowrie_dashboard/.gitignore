@@ -1,0 +1,7 @@
+
+# Llaves SSH - NUNCA subir
+*.key
+*.key.pub
+*.~lock*
+ip publica.txt
+129.151.111.28 ip publica.txt

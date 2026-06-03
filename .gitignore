@@ -51,6 +51,13 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# Llaves SSH - NUNCA subir
+*.key
+*.key.pub
+*.~lock*
+ip publica.txt
+129.151.111.28 ip publica.txt
+
 # Translations
 *.mo
 *.pot
@@ -60,6 +67,9 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+# Base de datos
+db.sqlite3
+*.sqlite3
 
 # Flask stuff:
 instance/
@@ -216,3 +226,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Logs de Cowrie (datos locales)
+logs/
