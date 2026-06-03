@@ -228,4 +228,4 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Logs de Cowrie (datos locales)
-logs/
+logs/ESTADO_COWRIE_DASHBOARD.md
