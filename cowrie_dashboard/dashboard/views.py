@@ -4,7 +4,10 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.db.models import Count
 from django.utils import timezone as djtz
-from .models import Connection, LoginAttempt, IPGeolocation
+from .models import (
+    Connection, LoginAttempt, IPGeolocation,
+    Command, FileDownload, Session,
+)
 
 
 def _build_stats():
@@ -98,3 +101,52 @@ def stats(request):
 def api_stats(request):
     data = _build_stats()
     return JsonResponse(data)
+
+def forensic(request):
+    """Vista forense: comandos, descargas y sesiones de atacantes."""
+    from django.db.models import Count
+
+    # Top comandos ejecutados
+    top_commands = list(
+        Command.objects.values('command')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:25]
+    )
+
+    # Últimos comandos (con IP y timestamp)
+    recent_commands = Command.objects.select_related('geo').order_by('-timestamp')[:50]
+    recent_commands_data = [{
+        'src_ip': c.src_ip,
+        'command': c.command,
+        'country': c.geo.country if c.geo else '',
+        'timestamp': djtz.localtime(c.timestamp).strftime('%Y-%m-%d %H:%M:%S'),
+    } for c in recent_commands]
+
+    # Descargas (IOCs)
+    downloads = FileDownload.objects.select_related('geo').order_by('-timestamp')[:50]
+    downloads_data = [{
+        'src_ip': d.src_ip,
+        'url': d.url,
+        'shasum': d.shasum,
+        'country': d.geo.country if d.geo else '',
+        'timestamp': djtz.localtime(d.timestamp).strftime('%Y-%m-%d %H:%M:%S'),
+    } for d in downloads]
+
+    # Clientes SSH (fingerprints)
+    clients = list(
+        Session.objects.exclude(client_version='')
+        .values('client_version')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:15]
+    )
+
+    context = {
+        'top_commands': top_commands,
+        'recent_commands': recent_commands_data,
+        'downloads': downloads_data,
+        'clients': clients,
+        'total_commands': Command.objects.count(),
+        'total_downloads': FileDownload.objects.count(),
+        'total_sessions': Session.objects.count(),
+    }
+    return render(request, 'dashboard/forensic.html', context)

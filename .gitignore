@@ -236,3 +236,7 @@ logs/ESTADO_COWRIE_DASHBOARD.md
 *.~lock*
 ip publica.txt
 129.151.111.28 ip publica.txt
+
+# Logs de Cowrie en cualquier ubicacion
+**/logs/
+**/cowrie.json

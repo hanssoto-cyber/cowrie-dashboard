@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cowrie Dashboard — Forense{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><span>▶</span> FORENSIC_ANALYSIS</h1>
+    <p>Comandos ejecutados, descargas de malware y fingerprints de atacantes</p>
+</div>
+
+<!-- STATS -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_commands }}</div>
+        <div class="stat-label">COMANDOS EJECUTADOS</div>
+    </div>
+    <div class="stat-card red">
+        <div class="stat-value">{{ total_downloads }}</div>
+        <div class="stat-label">DESCARGAS (IOCs)</div>
+    </div>
+    <div class="stat-card purple">
+        <div class="stat-value">{{ total_sessions }}</div>
+        <div class="stat-label">SESIONES SSH</div>
+    </div>
+</div>
+
+<!-- DESCARGAS / IOCs -->
+<div class="card">
+    <div class="card-title">🦠 Descargas de Archivos (Indicadores de Compromiso)</div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>IP Origen</th>
+                    <th>País</th>
+                    <th>URL / Archivo</th>
+                    <th>SHA256</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in downloads %}
+                <tr>
+                    <td><span class="badge badge-red">{{ d.src_ip }}</span></td>
+                    <td>{{ d.country|default:"?" }}</td>
+                    <td style="color:var(--terminal-orange)">{{ d.url|truncatechars:60 }}</td>
+                    <td style="color:var(--text-muted);font-size:0.7rem">{{ d.shasum|truncatechars:20|default:"-" }}</td>
+                    <td style="color:var(--text-muted)">{{ d.timestamp }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="color:var(--text-muted)">Sin descargas registradas</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- TOP COMANDOS -->
+<div class="card">
+    <div class="card-title">⌨️ Top Comandos Ejecutados</div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Veces</th>
+                    <th>Comando</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in top_commands %}
+                <tr>
+                    <td><span class="accent">{{ c.count }}</span></td>
+                    <td style="font-family:monospace;color:var(--terminal-green)">{{ c.command|truncatechars:110 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="2" style="color:var(--text-muted)">Sin comandos registrados</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- CLIENTES SSH -->
+<div class="card">
+    <div class="card-title">🔑 Clientes SSH Detectados (Fingerprint)</div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Sesiones</th>
+                    <th>Versión del Cliente SSH</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cl in clients %}
+                <tr>
+                    <td><span class="accent">{{ cl.count }}</span></td>
+                    <td style="color:var(--terminal-purple)">{{ cl.client_version }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="2" style="color:var(--text-muted)">Sin datos de cliente</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ÚLTIMOS COMANDOS -->
+<div class="card">
+    <div class="card-title">⚡ Últimos Comandos (cronológico)</div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>IP</th>
+                    <th>País</th>
+                    <th>Comando</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in recent_commands %}
+                <tr>
+                    <td><span class="accent">{{ c.src_ip }}</span></td>
+                    <td>{{ c.country|default:"?" }}</td>
+                    <td style="font-family:monospace;color:var(--terminal-green)">{{ c.command|truncatechars:90 }}</td>
+                    <td style="color:var(--text-muted)">{{ c.timestamp }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" style="color:var(--text-muted)">Sin comandos registrados</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

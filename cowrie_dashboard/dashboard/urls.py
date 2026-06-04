@@ -7,5 +7,6 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('attacks/', views.attacks, name='attacks'),
     path('stats/', views.stats, name='stats'),
+    path('forensic/', views.forensic, name='forensic'),
     path('api/stats/', views.api_stats, name='api_stats'),
 ]
