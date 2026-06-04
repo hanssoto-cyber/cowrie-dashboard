@@ -71,18 +71,23 @@ Atacantes (internet)
 | `stats.png` | Top credenciales y usuarios, ataques por hora |
 | `forensic.png` | Comandos ejecutados, descargas (IOCs), fingerprints |
 
-```markdown
+
 ## 🖼️ Capturas
 
 ### Dashboard principal
 ![Dashboard principal](docs/screenshots/dashboard.png)
 
-### Análisis forense
-![Análisis forense](docs/screenshots/forensic.png)
-
 ### Estadísticas
 ![Estadísticas](docs/screenshots/stats.png)
-```
+
+### Análisis forense
+![Forense - comandos](docs/screenshots/forensic.png)
+![Forense - descargas](docs/screenshots/forensic2.png)
+![Forense - fingerprints](docs/screenshots/forensic3.png)
+
+### Tabla de ataques
+![Ataques](docs/screenshots/attacks.png)
+
 
 ---
 
