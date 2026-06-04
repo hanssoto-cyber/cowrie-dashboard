@@ -4,7 +4,10 @@ import requests
 from datetime import datetime, timezone
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from dashboard.models import Connection, LoginAttempt, IPGeolocation
+from dashboard.models import (
+    Connection, LoginAttempt, IPGeolocation,
+    Command as CommandModel, FileDownload, Session,
+)
 
 
 class Command(BaseCommand):
@@ -31,6 +34,8 @@ class Command(BaseCommand):
 
         nuevas_conexiones = 0
         nuevos_logins = 0
+        nuevos_comandos = 0
+        nuevas_descargas = 0
         ips_para_geolocalizar = set()
 
         for line in lines:
@@ -84,6 +89,58 @@ class Command(BaseCommand):
                     nuevos_logins += 1
                 if src_ip:
                     ips_para_geolocalizar.add(src_ip)
+            # Comandos ejecutados por el atacante
+            if eventid == 'cowrie.command.input':
+                cmd = event.get('input', '')
+                _, created = CommandModel.objects.get_or_create(
+                    session=session,
+                    timestamp=ts,
+                    command=cmd,
+                    defaults={'src_ip': src_ip},
+                )
+                if created:
+                    nuevos_comandos += 1
+                if src_ip:
+                    ips_para_geolocalizar.add(src_ip)
+
+            # Archivos descargados (malware)
+            if eventid in ('cowrie.session.file_download', 'cowrie.session.file_upload'):
+                Session  # noqa
+                _, created = FileDownload.objects.get_or_create(
+                    session=session,
+                    timestamp=ts,
+                    url=event.get('url', '') or event.get('filename', ''),
+                    defaults={
+                        'src_ip': src_ip,
+                        'shasum': event.get('shasum', ''),
+                    },
+                )
+                if created:
+                    nuevas_descargas += 1
+                if src_ip:
+                    ips_para_geolocalizar.add(src_ip)
+
+            # Versión del cliente SSH (parte de la sesión)
+            if eventid == 'cowrie.client.version':
+                Session.objects.update_or_create(
+                    session=session,
+                    defaults={
+                        'src_ip': src_ip,
+                        'client_version': event.get('version', ''),
+                        'timestamp': ts,
+                    },
+                )
+
+            # Fingerprint HASSH del cliente SSH
+            if eventid == 'cowrie.client.kex':
+                Session.objects.update_or_create(
+                    session=session,
+                    defaults={
+                        'src_ip': src_ip,
+                        'hassh': event.get('hassh', ''),
+                        'timestamp': ts,
+                    },
+                )
 
         # Geolocalizar solo IPs que aún no conocemos
         self._geolocalizar(ips_para_geolocalizar)
@@ -93,8 +150,10 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f"Importación completa: "
-            f"{nuevas_conexiones} conexiones nuevas, "
-            f"{nuevos_logins} logins nuevos"
+            f"{nuevas_conexiones} conexiones, "
+            f"{nuevos_logins} logins, "
+            f"{nuevos_comandos} comandos, "
+            f"{nuevas_descargas} descargas"
         ))
 
     def _geolocalizar(self, ips):

@@ -2,7 +2,7 @@
 
 > Documento de handoff para continuar en un chat nuevo sin perder contexto.
 > **Cómo usarlo:** Pegale este documento completo al inicio del nuevo chat con Claude.
-> **Última actualización:** 02 de junio de 2026
+> **Última actualización:** 03 de junio de 2026 (honeypot desplegado en Oracle Cloud)
 
 ---
 
@@ -18,206 +18,225 @@ Enfoque: **Blue Team / SOC**.
 
 ---
 
-## 🎯 Proyecto actual: Cowrie Threat Dashboard
+## 🎯 Proyecto: Cowrie Threat Dashboard
 
-Dashboard web en Django que lee los logs del honeypot Cowrie y los visualiza
-como un SOC real: stats, mapa mundial de atacantes, tablas de intentos,
+Honeypot SSH (Cowrie) desplegado en un VPS cloud con IP pública real, que
+captura ataques de internet 24/7. Un dashboard Django lee los logs y los
+visualiza como un SOC: stats, mapa mundial de atacantes, tablas de intentos,
 top contraseñas/usuarios y gráficos por hora. Auto-refresh cada 30s.
 
-**Repo en GitHub:** `cowrie-dashboard`
-(https://github.com/hanssoto-cyber/cowrie-dashboard)
+**Repo GitHub:** `cowrie-dashboard` (https://github.com/hanssoto-cyber/cowrie-dashboard)
 
-**Estado:** ⚙️ EN DESARROLLO — funcionando en local con datos de prueba.
-Pipeline completo validado. Falta conectar logs reales y deploy.
-
----
-
-## 🧱 Stack técnico
-
-- Python + Django **6.0.5** (ojo: versión muy nueva, instalada hoy)
-- SQLite (base de datos)
-- python-decouple (variables de entorno vía `.env`)
-- requests (geolocalización de IPs)
-- Chart.js (gráficos)
-- Leaflet.js + CARTO dark tiles (mapa de atacantes)
-- ip-api.com (geolocalización gratuita, 45 req/min)
-- JetBrains Mono + paleta terminal hacker (misma identidad que el portafolio)
+**Estado:** ✅ SISTEMA COMPLETO Y AUTÓNOMO, corriendo en Oracle Cloud.
+Dejándolo 24-48h acumulando ataques reales antes de documentar en GitHub.
 
 ---
 
-## 📁 Estructura del proyecto
-
-Se respetó el flujo del profesor: **todo dentro de una carpeta contenedora.**
+## 🏗️ Arquitectura completa
 
 ```
-cowrie-dashboard/                  ← raíz del repo (aquí está .git y .gitignore)
-├── cowrie_dashboard/              ← carpeta contenedora
-│   ├── config/                    ← settings, urls, wsgi, asgi
-│   ├── dashboard/                 ← app principal
-│   │   ├── models.py              ← Connection, LoginAttempt, IPGeolocation
-│   │   ├── views.py               ← vistas con ORM (_build_stats)
-│   │   ├── admin.py               ← los 3 modelos registrados
-│   │   ├── urls.py                ← rutas de la app (app_name='dashboard')
-│   │   ├── utils.py               ← ⚠️ OBSOLETO, borrar (ya no se usa)
-│   │   └── management/commands/
-│   │       ├── import_cowrie.py   ← ingiere log JSON → BD
-│   │       └── seed_demo.py       ← genera datos de prueba
-│   ├── templates/
-│   │   ├── base.html              ← plantilla madre (herencia)
-│   │   └── dashboard/
-│   │       ├── index.html         ← dashboard principal + mapa + gráfico
-│   │       ├── attacks.html       ← tabla completa de ataques
-│   │       └── stats.html         ← top pass/users + gráfico líneas
-│   ├── static/
-│   │   ├── css/style.css          ← estilo terminal hacker
-│   │   └── js/main.js             ← auto-refresh AJAX cada 30s
-│   ├── logs/cowrie.json           ← log local (IGNORADO en git)
-│   ├── .env                       ← SECRET_KEY, DEBUG, COWRIE_LOG_PATH (IGNORADO)
-│   ├── db.sqlite3                 ← BD (IGNORADO, se regenera)
-│   └── manage.py
-├── venv/                          ← entorno virtual (IGNORADO)
-├── .gitignore
-├── README.md
-└── requirements.txt
-
-Ruta local en Windows:
-D:\Python\Poyectos-Django\cowrie-dashboard\
+Atacantes (internet)
+    │
+    ▼  puerto 22 (IP pública Oracle)
+[ VM Oracle Cloud — Ubuntu 24.04 ]
+    │  iptables redirige 22 → 2223
+    ▼
+[ Cowrie 3.0.1 ] (servicio systemd, usuario 'cowrie', puerto 2223)
+    │  escribe cowrie.json
+    ▼
+[ cron cada 5 min ] → import_cowrie → SQLite
+    │
+    ▼
+[ Dashboard Django ] (usuario 'ubuntu', puerto 8000, solo local)
+    │
+    ▼  túnel SSH (puerto 2222)
+[ Mi navegador Windows ] → http://localhost:8000
 ```
 
 ---
 
-## 🗃️ Modelos (dashboard/models.py)
+## ☁️ Infraestructura Oracle Cloud
 
-- **IPGeolocation** — geo cacheada por IP (ip, country, city, lat, lon).
-  Cada IP se geolocaliza UNA sola vez.
-- **Connection** — cada `cowrie.session.connect` (src_ip, session único, timestamp).
-- **LoginAttempt** — cada login éxito/fallo (src_ip, username, password, success,
-  session, timestamp, FK a IPGeolocation). Constraint único para no duplicar.
+- **Cuenta:** Oracle Cloud Free Tier (Always Free), región **Chile Central (Santiago)**.
+- **VM:** `cowriw-honeypot`, Ubuntu 24.04, shape VM.Standard.E2.1.Micro (Always Free).
+- **Compartment:** hanssotog (root).
+- **IP pública:** efímera (ANOTAR aparte, NO publicar). Guardada en archivo local
+  `129.151.111.28 ip publica.txt` (ignorado en git).
+- **Llave SSH privada:** `ssh-key-2026-06-03.key` (en Windows, IGNORADA en git, NUNCA subir).
+
+### Puertos y firewall
+| Puerto | Uso | Quién entra |
+|--------|-----|-------------|
+| 22 | Honeypot (redirige a 2223) | Bots/atacantes |
+| 2222 | SSH REAL (mi acceso) | Solo yo, con llave |
+| 2223 | Cowrie escucha aquí | (interno, vía redirect) |
+| 8000 | Dashboard Django | Solo local + túnel SSH |
+
+**Doble firewall (ambos persistentes):**
+- Oracle Security List: ingress abierto en 22, 2222 (regla "SSH real").
+- iptables interno: ACCEPT 22, 2222, 2223 antes del REJECT final.
+- Redirección NAT: `PREROUTING tcp --dport 22 REDIRECT --to-port 2223`.
+- Persistencia: `netfilter-persistent save` (paquete iptables-persistent).
+
+### Cambios de seguridad hechos en la VM
+- SSH movido del 22 al 2222 (editado `/etc/ssh/sshd_config` + desactivado `ssh.socket`,
+  activado `ssh.service`). Verificado que solo escucha en 2222.
+- Usuario `cowrie` sin privilegios corre el honeypot.
+- Usuario `ubuntu` agregado al grupo `cowrie` + permisos de lectura en
+  `/home/cowrie/cowrie/var/log/cowrie/` para que el dashboard lea el log.
 
 ---
 
-## ⚙️ Comandos del proyecto
+## 🔑 Cómo reconectarme a la VM
+
+Desde Git Bash en Windows, en la carpeta del proyecto (donde está la llave):
 
 ```bash
-# Activar entorno (Git Bash en Windows)
 cd /d/Python/Poyectos-Django/cowrie-dashboard
-source venv/Scripts/activate
-cd cowrie_dashboard
 
-# Importar logs reales de Cowrie a la BD
-python manage.py import_cowrie
-python manage.py import_cowrie --path logs/cowrie.json   # ruta manual
+# Conexión normal (administrar la VM)
+ssh -i ssh-key-2026-06-03.key -p 2222 ubuntu@<IP_PUBLICA>
 
-# Generar datos de prueba (DEMO)
-python manage.py seed_demo --count 200
-
-# Correr servidor
-python manage.py runserver
-# → http://127.0.0.1:8000        (dashboard)
-# → http://127.0.0.1:8000/stats/    (estadísticas)
-# → http://127.0.0.1:8000/attacks/  (tabla completa)
+# Con túnel para ver el dashboard
+ssh -i ssh-key-2026-06-03.key -p 2222 -L 8000:127.0.0.1:8000 ubuntu@<IP_PUBLICA>
 ```
+
+> Si la VM se reinició, la IP pública efímera PUEDE cambiar. Verificar en la
+> consola de Oracle (Instancia → Networking → Public IPv4).
 
 ---
 
-## 🔐 Configuración del .env (NO se sube a git)
+## 🖥️ Cómo ver el dashboard (cada vez)
 
-```
-SECRET_KEY=django-insecure-cowrie-dashboard-dev-key-2026
-DEBUG=True
-ALLOWED_HOSTS=127.0.0.1,localhost
-COWRIE_LOG_PATH=D:/Python/Poyectos-Django/cowrie-dashboard/cowrie_dashboard/logs/cowrie.json
-```
-
-> Nota: usar barras `/` aunque sea Windows. Si falta `COWRIE_LOG_PATH`,
-> settings.py cae al default que apunta a la ruta de la VM Ubuntu.
+1. Abrir túnel SSH (comando de arriba con `-L 8000:...`).
+2. En la VM: activar venv y correr el servidor:
+   ```bash
+   cd ~/cowrie-dashboard
+   source venv/bin/activate
+   cd cowrie_dashboard
+   python manage.py runserver 127.0.0.1:8000
+   ```
+3. En el navegador de Windows: `http://localhost:8000`
 
 ---
 
-## 🐝 Honeypot Cowrie (la fuente de datos)
+## ⚙️ Servicios y automatización (ya configurados)
 
-**VM:** Ubuntu en VMware. Hostname `elk`. Usuario admin: `rickthor`.
-**Cowrie:** corre bajo usuario `cowrie`, puerto **2222**, hostname falso `webserver01`.
-**Log:** `/home/cowrie/cowrie/var/log/cowrie/cowrie.json`
+**Cowrie (systemd):**
+```bash
+sudo systemctl status cowrie     # ver estado
+sudo systemctl restart cowrie    # reiniciar
+sudo journalctl -u cowrie -n 30  # logs del servicio
+```
+- Archivo: `/etc/systemd/system/cowrie.service`
+- `enable` activo → arranca solo al reiniciar la VM, Restart=on-failure.
 
-**Iniciar Cowrie:**
+**Cron (import automático cada 5 min):**
+```
+*/5 * * * * cd /home/ubuntu/cowrie-dashboard/cowrie_dashboard && \
+  /home/ubuntu/cowrie-dashboard/venv/bin/python manage.py import_cowrie \
+  >> /home/ubuntu/cowrie-import.log 2>&1
+```
+- Ver log de importación: `cat /home/ubuntu/cowrie-import.log`
+- `crontab -l` para ver, `crontab -e` para editar.
+
+**Iniciar Cowrie manual (si hiciera falta, normalmente NO):**
 ```bash
 sudo su - cowrie
-cd ~/cowrie
-source cowrie-env/bin/activate
-twistd -n cowrie
+cd ~/cowrie && source cowrie-env/bin/activate && twistd -n cowrie
 ```
-
-**Exposición a internet — RESUELTO con Ngrok:**
-- El router (Echolife GP8818A del ISP) NO tiene port forwarding.
-- Cloudflare Tunnel requería dominio propio (descartado).
-- playit.gg requería premium para TCP (descartado).
-- **Ngrok** funcionó tras agregar tarjeta (verificación, no cobran).
-
-```bash
-ngrok tcp 2222
-# → expone en tcp://0.tcp.sa.ngrok.io:PUERTO (aleatorio, cambia al reiniciar)
-```
-
-> ⚠️ Con Ngrok gratis la dirección es aleatoria y cambia cada reinicio.
-> Los bots tardan más en encontrarla que un puerto directo.
 
 ---
 
-## ✅ Lo que se logró hoy
+## 🧱 Stack del dashboard
 
-- Cowrie corriendo y expuesto a internet vía Ngrok (verificado con login de prueba).
-- Proyecto Django creado en carpeta contenedora (flujo del profesor).
-- 3 modelos con ORM + admin registrado + migraciones aplicadas.
-- `import_cowrie`: pipeline log JSON → SQLite validado (1 conexión, 1 login).
-- `seed_demo`: 200 ataques de prueba en 10 IPs de 9 países.
-- Dashboard funcionando: stats, mapa Leaflet, gráficos Chart.js, auto-refresh.
-- Herencia de plantillas (base.html → index/attacks/stats).
-- Commit y push a GitHub (26 archivos, 1512 líneas).
+- Python + Django **6.0.5** (ojo: versión muy nueva)
+- SQLite, python-decouple (.env), requests (geo), Chart.js, Leaflet.js + CARTO dark
+- ip-api.com para geolocalización (45 req/min, cacheada en BD)
+- JetBrains Mono + paleta terminal hacker
+
+### Estructura (carpeta contenedora, flujo del profesor)
+```
+cowrie-dashboard/                  ← raíz repo (.git, .gitignore)
+├── cowrie_dashboard/
+│   ├── config/                    ← settings, urls, wsgi
+│   ├── dashboard/
+│   │   ├── models.py              ← Connection, LoginAttempt, IPGeolocation
+│   │   ├── views.py               ← ORM (_build_stats)
+│   │   ├── admin.py, urls.py
+│   │   ├── utils.py               ← ⚠️ OBSOLETO, borrar
+│   │   └── management/commands/
+│   │       ├── import_cowrie.py   ← log JSON → BD
+│   │       └── seed_demo.py       ← datos de prueba
+│   ├── templates/ (base.html + dashboard/index,attacks,stats)
+│   ├── static/ (css/style.css, js/main.js)
+│   ├── logs/                      ← local, IGNORADO
+│   ├── .env                       ← IGNORADO (crear a mano en cada entorno)
+│   ├── db.sqlite3                 ← IGNORADO
+│   └── manage.py
+├── venv/                          ← IGNORADO
+└── requirements.txt
+```
+
+### .env en la VM Oracle
+```
+SECRET_KEY=django-insecure-cowrie-dashboard-prod-oracle-2026
+DEBUG=True
+ALLOWED_HOSTS=127.0.0.1,localhost
+COWRIE_LOG_PATH=/home/cowrie/cowrie/var/log/cowrie/cowrie.json
+```
 
 ---
 
-## 🗺️ Pendientes (para retomar)
+## ✅ Lo logrado (sesiones 02-03 jun)
+
+- Honeypot Cowrie 3.0.1 en Oracle Cloud con IP pública, servicio systemd 24/7.
+- Hardening de red: SSH movido a 2222, honeypot en 22→2223, doble firewall persistente.
+- Dashboard Django desplegado en la misma VM, leyendo logs reales.
+- Pipeline automatizado: cron importa cada 5 min sin intervención.
+- Acceso seguro por túnel SSH (dashboard NO expuesto a internet).
+- Primeros ataques reales empezando a llegar.
+- Repo limpio en GitHub: llaves SSH, .env, IP y db protegidos en .gitignore.
+
+---
+
+## 🗺️ Pendientes (retomar en 24-48h)
 
 ### Prioridad ALTA
-- [ ] **Borrar `dashboard/utils.py`** — quedó obsoleto al migrar al ORM.
-- [ ] **Conectar logs reales VM → Windows.** Opciones:
-      (a) correr `import_cowrie` directamente en la VM,
-      (b) carpeta compartida VMware,
-      (c) scp/rsync periódico.
-- [ ] **Dejar Cowrie + Ngrok corriendo** para acumular ataques reales.
+- [ ] Revisar ataques acumulados (`cat cowrie-import.log`, ver dashboard lleno).
+- [ ] Documentar el proyecto en GitHub (README pro) CON los datos ricos.
+      ⚠️ NO publicar: IP pública, llaves, puerto 2222, .env.
+- [ ] **Borrar `dashboard/utils.py`** (obsoleto desde el ORM).
 
 ### Prioridad MEDIA
-- [ ] Limpiar datos demo antes de cargar reales (o separar entornos).
-- [ ] Programar `import_cowrie` automático (cron en la VM / tarea programada).
-- [ ] Deploy del dashboard (PythonAnywhere u otro).
-- [ ] Botón/indicador de "última actualización" en el dashboard.
+- [ ] Análisis de ataques: países, top credenciales, patrones.
+- [ ] Correlación con MITRE ATT&CK.
+- [ ] Capturas del dashboard con datos reales para el README y LinkedIn.
+- [ ] Considerar dejar el dashboard como servicio systemd también.
 
 ### Prioridad BAJA
-- [ ] Filtros por país / rango de fechas en la tabla de ataques.
-- [ ] Correlación con MITRE ATT&CK.
-- [ ] Exportar reporte (CSV/PDF) de ataques.
-- [ ] Extensión Django en VS Code (silencia falsos positivos del linter).
+- [ ] Filtros por país / fecha en la tabla.
+- [ ] Exportar reporte (CSV/PDF).
+- [ ] ¿Exponer el dashboard públicamente para el portafolio? (con cuidado).
 
 ---
 
 ## 💬 Estilo de trabajo
 
-- Nuevo en Django/desarrollo web (este es el 2° proyecto).
-- Python básico. Windows + VS Code + Git Bash (MINGW64).
-- Me gusta entender el "por qué" de cada cosa.
-- Prefiero pasos pequeños verificables, de a uno.
-- Respeto el flujo del profesor: todo dentro de carpeta contenedora.
-- Vivo en Santiago, Chile.
+- Nuevo en Django/web (2° proyecto). Python básico.
+- Windows + VS Code + Git Bash (MINGW64).
+- Me gusta entender el "por qué". Pasos pequeños verificables, de a uno.
+- Respeto el flujo del profesor: todo en carpeta contenedora.
+- Santiago, Chile.
 
-## ⚠️ Cosas importantes
+## ⚠️ Cosas críticas
 
-1. El `.env`, `db.sqlite3`, `logs/` y `venv/` NO se suben a git (verificado).
-2. El `.git` está en la carpeta padre `cowrie-dashboard/`, no en `cowrie_dashboard/`.
-   Para commits hay que subir un nivel: `cd /d/Python/Poyectos-Django/cowrie-dashboard`.
-3. Los timestamps del dashboard se convierten a hora de Santiago.
-4. `127.0.0.1` no se geolocaliza (es localhost) — normal que no aparezca en el mapa.
-5. Django 6.0.5 es muy reciente — si algo raro pasa, considerar la versión.
+1. **NUNCA** subir a git: `ssh-key-2026-06-03.key`, `.env`, IP pública, `db.sqlite3`.
+2. Mi acceso SSH es por el puerto **2222** (NO el 22, ese es el honeypot).
+3. El `.git` está en la raíz `cowrie-dashboard/`; para commits subir un nivel.
+4. La IP pública es efímera: si la VM reinicia, verificar en consola Oracle.
+5. Cowrie y cron ya son automáticos — normalmente no hay que tocar nada.
+6. La VM local de VMware y Ngrok quedaron OBSOLETOS (todo está en Oracle ahora).
 
 ---
 **Fin del documento. Pegar al inicio del nuevo chat para retomar sin perder contexto.**

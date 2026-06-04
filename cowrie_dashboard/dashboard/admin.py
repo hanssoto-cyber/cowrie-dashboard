@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Connection, LoginAttempt, IPGeolocation
+from .models import (
+    Connection, LoginAttempt, IPGeolocation,
+    Command, FileDownload, Session,
+)
 
 
 @admin.register(IPGeolocation)
@@ -21,3 +24,22 @@ class LoginAttemptAdmin(admin.ModelAdmin):
     list_display = ('src_ip', 'username', 'password', 'success', 'timestamp')
     search_fields = ('src_ip', 'username', 'password')
     list_filter = ('success', 'timestamp')
+
+
+@admin.register(Command)
+class CommandAdmin(admin.ModelAdmin):
+    list_display = ('src_ip', 'command', 'timestamp')
+    search_fields = ('src_ip', 'command', 'session')
+    list_filter = ('timestamp',)
+
+
+@admin.register(FileDownload)
+class FileDownloadAdmin(admin.ModelAdmin):
+    list_display = ('src_ip', 'url', 'shasum', 'timestamp')
+    search_fields = ('src_ip', 'url', 'shasum')
+
+
+@admin.register(Session)
+class SessionAdmin(admin.ModelAdmin):
+    list_display = ('session', 'src_ip', 'client_version', 'hassh', 'timestamp')
+    search_fields = ('session', 'src_ip', 'client_version', 'hassh')

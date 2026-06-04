@@ -55,3 +55,65 @@ class LoginAttempt(models.Model):
     def __str__(self):
         estado = 'OK' if self.success else 'FAIL'
         return f"{self.src_ip} {self.username}/{self.password} [{estado}]"
+
+
+class Command(models.Model):
+    """Comando ejecutado por un atacante dentro de la sesión (cowrie.command.input)."""
+    src_ip = models.GenericIPAddressField()
+    session = models.CharField(max_length=64)
+    command = models.TextField()
+    timestamp = models.DateTimeField()
+    geo = models.ForeignKey(
+        IPGeolocation, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='commands',
+    )
+
+    class Meta:
+        ordering = ['-timestamp']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session', 'timestamp', 'command'],
+                name='unique_command_event',
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.src_ip}: {self.command[:50]}"
+
+
+class FileDownload(models.Model):
+    """Archivo que un atacante intentó descargar (cowrie.session.file_download)."""
+    src_ip = models.GenericIPAddressField()
+    session = models.CharField(max_length=64)
+    url = models.TextField(blank=True)
+    shasum = models.CharField(max_length=64, blank=True)
+    timestamp = models.DateTimeField()
+    geo = models.ForeignKey(
+        IPGeolocation, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='downloads',
+    )
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.src_ip}: {self.url[:60]}"
+
+
+class Session(models.Model):
+    """Sesión SSH completa, con fingerprint del cliente atacante."""
+    session = models.CharField(max_length=64, unique=True)
+    src_ip = models.GenericIPAddressField()
+    client_version = models.CharField(max_length=255, blank=True)
+    hassh = models.CharField(max_length=64, blank=True)
+    timestamp = models.DateTimeField()
+    geo = models.ForeignKey(
+        IPGeolocation, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='sessions',
+    )
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.session} ({self.src_ip})"
