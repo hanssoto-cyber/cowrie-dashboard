@@ -21,11 +21,11 @@ estadísticas en tiempo real, geolocalización de atacantes, credenciales más u
 y un módulo forense que muestra los comandos y el malware que los atacantes
 intentan ejecutar.
 
-En ~24 horas de exposición capturó **359 conexiones** de **84 IPs únicas** en 9+
-países, incluyendo dos campañas de malware completas (un módulo de propagación de
-botnet y un backdoor SSH).
+En **2 semanas** de exposición capturó más de **25.000 sesiones de ataque** y
+**220 descargas de malware**, incluyendo campañas de cryptojacking, propagación
+de botnet y backdoors SSH.
 
-📄 **[Ver informe completo de análisis →](docs/INFORME_ANALISIS.md)**
+📄 **[Informe de análisis →](docs/INFORME_ANALISIS.md)** · 🦠 **[Anexo de análisis de malware →](docs/ANEXO_ANALISIS_MALWARE.md)**
 
 ---
 
@@ -37,7 +37,21 @@ botnet y un backdoor SSH).
 - **Geolocalización** de IPs atacantes en mapa mundial interactivo.
 - **Análisis forense**: comandos ejecutados, archivos descargados (IOCs) y
   fingerprints de los clientes SSH.
-- **Correlación MITRE ATT&CK** de las técnicas observadas.
+- **Triaje de malware** con VirusTotal y correlación MITRE ATT&CK.
+
+---
+
+## 📊 Hallazgos destacados (2 semanas)
+
+- **25.010 sesiones** de ataque · **23.659 comandos** ejecutados · **220 descargas**.
+- **64%** de los intentos dirigidos al usuario `root`.
+- Las contraseñas más usadas son **credenciales hardcodeadas de malware**
+  (`LeitboGi0ro`, `123@@@`, `smo@@kkklss`), no diccionarios humanos → tráfico de bots.
+- **5 muestras de malware analizadas**: RedTail (criptominero ARM), lanzador xmrig,
+  módulo de propagación de botnet, backdoor SSH (abuso de PAM) y discord-exploit
+  (usa Discord como C2).
+- **Hallazgo clave**: la muestra más frecuente (124 descargas) es detectada por solo
+  **3 de 75 antivirus** — demuestra el valor de la detección por comportamiento.
 
 ---
 
@@ -48,7 +62,7 @@ Atacantes (internet)
     │  puerto 22
     ▼
 [ Servidor cloud — Ubuntu 24.04 ]
-    │  redirección a puerto interno
+    │  iptables redirige 22 → 2223
     ▼
 [ Cowrie 3.0.1 ]  honeypot SSH (servicio systemd, 24/7)
     │  log JSON
@@ -60,17 +74,6 @@ Atacantes (internet)
 ```
 
 ---
-
-## 🖼️ Capturas
-
-> Agregar las capturas reales en `docs/screenshots/` y enlazarlas aquí.
-
-| Vista | Descripción |
-|-------|-------------|
-| `dashboard.png` | Panel principal: stats, mapa de atacantes, gráficos |
-| `stats.png` | Top credenciales y usuarios, ataques por hora |
-| `forensic.png` | Comandos ejecutados, descargas (IOCs), fingerprints |
-
 
 ## 🖼️ Capturas
 
@@ -88,7 +91,6 @@ Atacantes (internet)
 ### Tabla de ataques
 ![Ataques](docs/screenshots/attacks.png)
 
-
 ---
 
 ## 🛠️ Stack técnico
@@ -99,19 +101,9 @@ Atacantes (internet)
 | Backend | Python 3.12 · Django 6.0 · SQLite |
 | Visualización | Chart.js · Leaflet.js (mapa) |
 | Geolocalización | ip-api.com (cacheada) |
+| Threat intel | VirusTotal · Joe Sandbox |
 | Infraestructura | VPS cloud · Ubuntu 24.04 · systemd · cron |
 | Seguridad | SSH en puerto no estándar · doble firewall (perimetral + iptables) |
-
----
-
-## 📊 Hallazgos destacados
-
-- **64% de los ataques** apuntaron al usuario `root` (búsqueda de privilegio máximo).
-- Las 3 contraseñas más usadas son **credenciales hardcodeadas de malware**
-  (`LeitboGi0ro`, `123@@@`, `smo@@kkklss`), no diccionarios humanos → tráfico de bots.
-- Se capturó un **módulo de propagación de botnet** (escáner SSH en Python que
-  instala un servicio systemd oculto) y un **backdoor ELF** que abusa de PAM.
-- **14 técnicas MITRE ATT&CK** identificadas (ver informe).
 
 ---
 
@@ -158,6 +150,70 @@ python manage.py seed_demo --count 200
 
 ---
 
+## 🔌 Guía de acceso al dashboard (con honeypot remoto)
+
+Cuando el honeypot corre en un servidor remoto, el dashboard NO se expone a
+internet: se accede mediante un **túnel SSH**. Se necesitan dos cosas activas a la
+vez — el servidor Django corriendo en la VM y el túnel SSH abierto.
+
+### Paso 1 — Levantar el servidor (en la VM)
+Conéctate a la VM y arranca el servidor:
+```bash
+ssh -i <llave> -p <puerto_admin> usuario@IP
+cd ~/cowrie-dashboard
+source venv/bin/activate
+cd cowrie_dashboard
+python manage.py runserver 127.0.0.1:8000
+```
+Deja esa terminal abierta con el servidor corriendo.
+
+### Paso 2 — Abrir el túnel SSH
+Hay **dos formas** de hacerlo:
+
+**Forma A — Comando directo** (en otra terminal, desde tu equipo):
+```bash
+ssh -i <llave> -p <puerto_admin> -L 8000:127.0.0.1:8000 usuario@IP
+```
+El parámetro `-L 8000:127.0.0.1:8000` reenvía el puerto 8000 local al 8000 de la VM.
+Recomendado añadir keepalive para que no se caiga por inactividad:
+```bash
+ssh -i <llave> -p <puerto_admin> -o ServerAliveInterval=60 -L 8000:127.0.0.1:8000 usuario@IP
+```
+
+**Forma B — Con alias en `~/.ssh/config`** (más cómodo):
+Crea/edita `~/.ssh/config` y añade:
+```
+Host honeypot
+    HostName <IP>
+    User <usuario>
+    Port <puerto_admin>
+    IdentityFile <ruta/a/la/llave>
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+```
+Luego el túnel se abre con un comando corto:
+```bash
+ssh -L 8000:127.0.0.1:8000 honeypot
+```
+
+### Paso 3 — Abrir en el navegador
+```
+http://localhost:8000
+```
+
+### Solución de problemas
+| Error | Causa | Solución |
+|-------|-------|----------|
+| `Permission denied (publickey)` / `bad permissions` | Permisos de la llave | `chmod 600 <llave>` (en Git Bash) |
+| `That port is already in use` | El servidor ya corría | Abrir el navegador, o `pkill -f runserver` y reintentar |
+| La página no carga | Falta el túnel o el servidor | Verificar que ambas terminales estén activas |
+| `Connection timed out` | La IP del servidor cambió | Verificar la IP en el panel del proveedor cloud |
+
+> Nota: el honeypot sigue capturando ataques (systemd + cron) aunque el dashboard
+> esté cerrado. El servidor del dashboard solo se levanta para *ver* los datos.
+
+---
+
 ## ⚙️ Comandos disponibles
 
 | Comando | Descripción |
@@ -165,12 +221,6 @@ python manage.py seed_demo --count 200
 | `import_cowrie` | Importa el log JSON de Cowrie a la base de datos |
 | `import_cowrie --path <ruta>` | Importa desde una ruta específica |
 | `seed_demo --count N` | Genera N ataques de prueba para demo |
-
----
-
-## 📁 Estructura del proyecto
-
-Ver [estructura detallada más abajo](#estructura-del-repositorio).
 
 ---
 
