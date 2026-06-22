@@ -92,7 +92,9 @@ class FileDownload(models.Model):
         IPGeolocation, null=True, blank=True,
         on_delete=models.SET_NULL, related_name='downloads',
     )
-
+    vt_detections = models.IntegerField(null=True, blank=True)
+    vt_total = models.IntegerField(null=True, blank=True)
+    vt_familia = models.CharField(max_length=255, blank=True)
     class Meta:
         ordering = ['-timestamp']
 

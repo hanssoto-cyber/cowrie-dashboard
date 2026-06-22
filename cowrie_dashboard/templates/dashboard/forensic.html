@@ -35,6 +35,7 @@
                     <th>IP Origen</th>
                     <th>País</th>
                     <th>URL / Archivo</th>
+                    <th>VirusTotal</th>
                     <th>SHA256</th>
                     <th>Timestamp</th>
                 </tr>
@@ -45,6 +46,14 @@
                     <td><span class="badge badge-red">{{ d.src_ip }}</span></td>
                     <td>{{ d.country|default:"?" }}</td>
                     <td style="color:var(--terminal-orange)">{{ d.url|truncatechars:60 }}</td>
+                    <td>
+                        {% if d.vt_detections is not None %}
+                            <span class="badge badge-red">{{ d.vt_detections }}/{{ d.vt_total }}</span>
+                            {% if d.vt_familia %}<br><span style="color:var(--text-muted);font-size:0.7rem">{{ d.vt_familia|truncatechars:25 }}</span>{% endif %}
+                        {% else %}
+                            <span style="color:var(--text-muted)">-</span>
+                        {% endif %}
+                    </td>
                     <td style="color:var(--text-muted);font-size:0.7rem">{{ d.shasum|truncatechars:20|default:"-" }}</td>
                     <td style="color:var(--text-muted)">{{ d.timestamp }}</td>
                 </tr>

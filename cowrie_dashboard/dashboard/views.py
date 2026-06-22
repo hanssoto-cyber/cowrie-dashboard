@@ -130,6 +130,9 @@ def forensic(request):
         'shasum': d.shasum,
         'country': d.geo.country if d.geo else '',
         'timestamp': djtz.localtime(d.timestamp).strftime('%Y-%m-%d %H:%M:%S'),
+        'vt_detections': d.vt_detections,
+        'vt_total': d.vt_total,
+        'vt_familia': d.vt_familia,
     } for d in downloads]
 
     # Clientes SSH (fingerprints)
